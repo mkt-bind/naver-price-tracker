@@ -18,7 +18,7 @@ SHEET_NAME = os.environ["SHEET_NAME"]
 NAVER_API_URL = "https://openapi.naver.com/v1/search/shop.json"
 
 START_ROW = 5
-COL_SEARCH = 16   # P열: SKU + 컬러코드 (1차 검색어)
+COL_SEARCH = 19   # S열: SKU + 컬러코드 (1차 검색어)
 COL_FALLBACK = 7  # G열: SKU 품번만 (2차 검색어)
 
 ALLOWED_MALLS = {
@@ -123,7 +123,7 @@ def main():
         result.append(now)
 
         updates.append({
-            "range": f"Q{row_num}:Z{row_num}",
+            "range": f"T{row_num}:AC{row_num}",
             "values": [result],
         })
 
