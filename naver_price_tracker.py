@@ -20,8 +20,21 @@ NAVER_API_URL = "https://openapi.naver.com/v1/search/shop.json"
 START_ROW = 5
 COL_SEARCH = 16  # P열 (1-indexed)
 
+ALLOWED_MALLS = {
+    "머스트잇", "트렌비", "발란", "젠테스토어", "렉스몬드",
+    "무신사", "29CM", "4910", "하이버", "댄블", "필웨이", "퀸잇", "구하다"
+}
+
 gc = gspread.service_account_from_dict(json.loads(os.environ["GOOGLE_CREDENTIALS_JSON"]))
 ws = gc.open_by_key(SPREADSHEET_ID).worksheet(SHEET_NAME)
+
+
+def is_allowed_mall(mall_name: str) -> bool:
+    mall_lower = mall_name.lower()
+    for allowed in ALLOWED_MALLS:
+        if allowed.lower() in mall_lower:
+            return True
+    return False
 
 
 def search_naver(query: str) -> list:
@@ -62,20 +75,43 @@ def main():
 
         print(f"[{row_num}행] {search_term}")
         items = search_naver(search_term)
-        valid = [it for it in items if it.get("lprice") and it["lprice"] != "0"]
 
-        if not valid:
-            price_str, mall_str = "결과없음", "-"
-        else:
-            min_item = min(valid, key=lambda x: int(x["lprice"]))
-            price_str = f"{int(min_item['lprice']):,}"
-            mall_str = min_item.get("mallName", "-")
+        # 유효 가격 + 허용 채널 필터링 후 가격 오름차순 상위 3개
+        valid = [
+            it for it in items
+            if it.get("lprice") and it["lprice"] != "0"
+            and is_allowed_mall(it.get("mallName", ""))
+        ]
+        valid.sort(key=lambda x: int(x["lprice"]))
+        top3 = valid[:3]
+
+        # 3순위까지 (가격, 판매처, 링크) 구성 → Q~Z열 (10개)
+        result = []
+        for j in range(3):
+            if j < len(top3):
+                item = top3[j]
+                result.extend([
+                    f"{int(item['lprice']):,}",
+                    item.get("mallName", "-"),
+                    item.get("link", "-"),
+                ])
+            else:
+                result.extend(["결과없음", "-", "-"])
+        result.append(now)  # Z열 수집일시
 
         updates.append({
-            "range": f"Q{row_num}:S{row_num}",
-            "values": [[price_str, mall_str, now]],
+            "range": f"Q{row_num}:Z{row_num}",
+            "values": [result],
         })
-        print(f"  → {price_str}원 ({mall_str})")
+
+        if top3:
+            print(f"  1위: {result[0]}원 ({result[1]})")
+            if len(top3) > 1:
+                print(f"  2위: {result[3]}원 ({result[4]})")
+            if len(top3) > 2:
+                print(f"  3위: {result[6]}원 ({result[7]})")
+        else:
+            print("  → 허용 채널 결과없음")
 
     if updates:
         ws.batch_update(updates)
