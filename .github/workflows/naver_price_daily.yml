@@ -1,0 +1,29 @@
+name: 네이버 쇼핑 최저가 수집
+
+on:
+  schedule:
+    - cron: '0 17 * * *'  # UTC 17:00 = KST 02:00
+  workflow_dispatch:       # 수동 실행 버튼
+
+jobs:
+  collect-prices:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 패키지 설치
+        run: pip install gspread requests python-dotenv
+
+      - name: 최저가 수집 실행
+        env:
+          NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
+          NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
+          GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
+          SPREADSHEET_ID: ${{ secrets.SPREADSHEET_ID }}
+          SHEET_NAME: ${{ secrets.SHEET_NAME }}
+        run: python naver_price_tracker.py
