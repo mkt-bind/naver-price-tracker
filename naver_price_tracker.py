@@ -18,7 +18,8 @@ SHEET_NAME = os.environ["SHEET_NAME"]
 NAVER_API_URL = "https://openapi.naver.com/v1/search/shop.json"
 
 START_ROW = 5
-COL_SEARCH = 16  # P열 (1-indexed)
+COL_SEARCH = 16   # P열: SKU + 컬러코드 (1차 검색어)
+COL_FALLBACK = 7  # G열: SKU 품번만 (2차 검색어)
 
 ALLOWED_MALLS = {
     "머스트잇", "트렌비", "발란", "젠테스토어", "렉스몬드",
@@ -61,6 +62,25 @@ def search_naver(query: str) -> list:
     return items
 
 
+def filter_allowed(items: list) -> list:
+    return [
+        it for it in items
+        if it.get("lprice") and it["lprice"] != "0"
+        and is_allowed_mall(it.get("mallName", ""))
+    ]
+
+
+def merge_and_rank(list1: list, list2: list) -> list:
+    """두 결과를 합쳐 판매처별 최저가 기준으로 상위 3개 반환"""
+    by_mall = {}
+    for item in list1 + list2:
+        mall = item.get("mallName", "")
+        price = int(item.get("lprice", 0))
+        if mall not in by_mall or price < int(by_mall[mall]["lprice"]):
+            by_mall[mall] = item
+    return sorted(by_mall.values(), key=lambda x: int(x["lprice"]))
+
+
 def main():
     all_values = ws.get_all_values()
     data_rows = all_values[START_ROW - 1:]
@@ -73,19 +93,22 @@ def main():
         if not search_term:
             continue
 
-        print(f"[{row_num}행] {search_term}")
-        items = search_naver(search_term)
+        # 1차 검색: P열 (SKU + 컬러코드)
+        print(f"[{row_num}행] 1차: {search_term}")
+        valid1 = filter_allowed(search_naver(search_term))
 
-        # 유효 가격 + 허용 채널 필터링 후 가격 오름차순 상위 3개
-        valid = [
-            it for it in items
-            if it.get("lprice") and it["lprice"] != "0"
-            and is_allowed_mall(it.get("mallName", ""))
-        ]
-        valid.sort(key=lambda x: int(x["lprice"]))
-        top3 = valid[:3]
+        # 2차 검색: 3개 미만이면 G열 (SKU 품번만) 으로 보완
+        valid2 = []
+        if len(valid1) < 3:
+            fallback_term = row[COL_FALLBACK - 1].strip() if len(row) >= COL_FALLBACK else ""
+            if fallback_term and fallback_term != search_term:
+                print(f"  → {len(valid1)}개 결과, 2차: {fallback_term}")
+                valid2 = filter_allowed(search_naver(fallback_term))
 
-        # 3순위까지 (가격, 판매처, 링크) 구성 → Q~Z열 (10개)
+        # 두 결과 합산 → 판매처별 최저가 기준 상위 3개
+        top3 = merge_and_rank(valid1, valid2)[:3]
+
+        # Q~Z열 구성 (가격, 판매처, 링크) × 3 + 수집일시
         result = []
         for j in range(3):
             if j < len(top3):
@@ -97,7 +120,7 @@ def main():
                 ])
             else:
                 result.extend(["결과없음", "-", "-"])
-        result.append(now)  # Z열 수집일시
+        result.append(now)
 
         updates.append({
             "range": f"Q{row_num}:Z{row_num}",
