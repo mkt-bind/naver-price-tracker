@@ -23,7 +23,8 @@ COL_FALLBACK = 7  # G열: SKU 품번만 (2차 검색어)
 
 ALLOWED_MALLS = {
     "머스트잇", "트렌비", "발란", "젠테스토어", "렉스몬드",
-    "무신사", "29CM", "4910", "하이버", "댄블", "필웨이", "퀸잇", "구하다"
+    "무신사", "29CM", "4910", "하이버", "댄블", "필웨이", "퀸잇", "구하다",
+    "더블유컨셉"
 }
 
 gc = gspread.service_account_from_dict(json.loads(os.environ["GOOGLE_CREDENTIALS_JSON"]))
