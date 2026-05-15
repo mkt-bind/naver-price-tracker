@@ -1,6 +1,7 @@
 import os
 import json
 import time
+import random
 import requests
 import gspread
 from datetime import datetime
@@ -59,7 +60,7 @@ def search_naver(query: str) -> list:
                 print(f"  API 오류 {resp.status_code}: {resp.text[:100]}")
         except requests.RequestException as e:
             print(f"  요청 실패: {e}")
-        time.sleep(0.3)
+        time.sleep(random.uniform(1, 3))
     return items
 
 
@@ -136,6 +137,8 @@ def main():
                 print(f"  3위: {result[6]}원 ({result[7]})")
         else:
             print("  → 허용 채널 결과없음")
+
+        time.sleep(random.uniform(1, 3))  # SKU 간 랜덤 대기
 
     if updates:
         ws.batch_update(updates)
