@@ -4,7 +4,7 @@ import time
 import random
 import requests
 import gspread
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 
 try:
     from dotenv import load_dotenv
@@ -19,8 +19,9 @@ SHEET_NAME = os.environ["SHEET_NAME"]
 NAVER_API_URL = "https://openapi.naver.com/v1/search/shop.json"
 
 START_ROW = 5
-COL_SEARCH = 19   # S열: SKU + 컬러코드 (1차 검색어)
+COL_SEARCH = 18   # R열: SKU + 컬러코드 (1차 검색어)
 COL_FALLBACK = 7  # G열: SKU 품번만 (2차 검색어)
+KST = timezone(timedelta(hours=9))
 
 ALLOWED_MALLS = {
     "머스트잇", "트렌비", "발란", "젠테스토어", "렉스몬드",
@@ -86,7 +87,7 @@ def merge_and_rank(list1: list, list2: list) -> list:
 def main():
     all_values = ws.get_all_values()
     data_rows = all_values[START_ROW - 1:]
-    now = datetime.now().strftime("%Y-%m-%d %H:%M")
+    now = datetime.now(KST).strftime("%Y-%m-%d %H:%M")
     updates = []
 
     for i, row in enumerate(data_rows):
@@ -125,7 +126,7 @@ def main():
         result.append(now)
 
         updates.append({
-            "range": f"T{row_num}:AC{row_num}",
+            "range": f"S{row_num}:AB{row_num}",
             "values": [result],
         })
 
